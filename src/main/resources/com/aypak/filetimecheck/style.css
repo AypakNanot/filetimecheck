@@ -1,0 +1,50 @@
+/* 拖拽区域样式 */
+.drop-zone {
+    -fx-background-color: #f5f5f5;
+    -fx-border-color: #cccccc;
+    -fx-border-style: dashed;
+    -fx-border-width: 2;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+}
+
+.drop-zone:hover {
+    -fx-background-color: #e8f4f8;
+    -fx-border-color: #3498db;
+}
+
+.drop-zone-drag-over {
+    -fx-background-color: #d4eaf7;
+    -fx-border-color: #2980b9;
+    -fx-border-style: solid;
+}
+
+.drop-hint {
+    -fx-font-size: 14px;
+    -fx-text-fill: #666666;
+}
+
+.drop-hint-secondary {
+    -fx-font-size: 12px;
+    -fx-text-fill: #999999;
+}
+
+/* 统计标签样式 */
+.label-normal {
+    -fx-text-fill: #27ae60;
+    -fx-font-weight: bold;
+}
+
+.label-abnormal {
+    -fx-text-fill: #e74c3c;
+    -fx-font-weight: bold;
+}
+
+/* 表格行样式 */
+.table-row-cell:normal .table-cell {
+    -fx-text-fill: #27ae60;
+}
+
+.table-row-cell:abnormal .table-cell {
+    -fx-text-fill: #e74c3c;
+}

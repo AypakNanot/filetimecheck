@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.aypak.filetimecheck.HelloController"
+            prefHeight="600.0" prefWidth="1000.0"
+            stylesheets="@style.css">
+
+    <top>
+        <VBox spacing="10" alignment="CENTER">
+            <padding>
+                <Insets bottom="15" left="15" right="15" top="15"/>
+            </padding>
+
+            <!-- 标题 -->
+            <Label text="文件时间校验工具">
+                <font>
+                    <Font name="System Bold" size="20"/>
+                </font>
+            </Label>
+
+            <!-- 拖拽区域 -->
+            <StackPane fx:id="dropZone" prefHeight="80" styleClass="drop-zone">
+                <VBox alignment="CENTER" spacing="5">
+                    <Label text="将文件或文件夹拖拽到此区域" styleClass="drop-hint"/>
+                    <Label text="或" styleClass="drop-hint-secondary"/>
+                    <HBox spacing="10" alignment="CENTER">
+                        <Button fx:id="selectFileButton" text="选择文件" onAction="#handleSelectFile"/>
+                        <Button fx:id="selectFolderButton" text="选择文件夹" onAction="#handleSelectFolder"/>
+                    </HBox>
+                </VBox>
+            </StackPane>
+        </VBox>
+    </top>
+
+    <center>
+        <TableView fx:id="fileTable" tableMenuButtonVisible="true">
+            <columns>
+                <TableColumn fx:id="pathColumn" text="文件路径" prefWidth="300" sortable="false"/>
+                <TableColumn fx:id="creationTimeColumn" text="创建时间" prefWidth="150"/>
+                <TableColumn fx:id="modifiedTimeColumn" text="修改时间" prefWidth="150"/>
+                <TableColumn fx:id="accessTimeColumn" text="访问时间" prefWidth="150"/>
+                <TableColumn fx:id="statusColumn" text="状态" prefWidth="120"/>
+            </columns>
+            <selectionModel>
+                <TableViewSelectionModel fx:constant="MULTIPLE"/>
+            </selectionModel>
+            <placeholder>
+                <Label text="拖拽文件或文件夹开始校验"/>
+            </placeholder>
+        </TableView>
+    </center>
+
+    <bottom>
+        <VBox spacing="10">
+            <padding>
+                <Insets bottom="10" left="15" right="15" top="10"/>
+            </padding>
+
+            <!-- 进度条 -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label fx:id="progressLabel" text="就绪"/>
+                <ProgressBar fx:id="progressBar" prefWidth="700" progress="0"/>
+            </HBox>
+
+            <!-- 统计信息 -->
+            <HBox spacing="20" alignment="CENTER_LEFT">
+                <Label fx:id="totalLabel" text="总文件数: 0">
+                    <padding><Insets right="10"/></padding>
+                </Label>
+                <Label fx:id="normalLabel" text="正常: 0" styleClass="label-normal">
+                    <padding><Insets right="10"/></padding>
+                </Label>
+                <Label fx:id="abnormalLabel" text="异常: 0" styleClass="label-abnormal"/>
+            </HBox>
+
+            <!-- 操作按钮 -->
+            <HBox spacing="10" alignment="CENTER_RIGHT">
+                <Button fx:id="reloadButton" text="重新加载" onAction="#handleReload" disable="true"/>
+                <Button fx:id="validateButton" text="手动校验" onAction="#handleValidate" disable="true"/>
+                <Button fx:id="deleteButton" text="删除选中" onAction="#handleDeleteSelected" disable="true"/>
+                <Button fx:id="clearButton" text="清空列表" onAction="#handleClear" disable="true"/>
+            </HBox>
+        </VBox>
+    </bottom>
+</BorderPane>
