@@ -25,7 +25,7 @@
 
             <!-- 拖拽区域 -->
             <StackPane fx:id="dropZone" prefHeight="80" styleClass="drop-zone">
-                <VBox alignment="CENTER" spacing="5">
+                <VBox alignment="CENTER" spacing="5" styleClass="drop-zone-content">
                     <Label text="将文件或文件夹拖拽到此区域" styleClass="drop-hint"/>
                     <Label text="或" styleClass="drop-hint-secondary"/>
                     <HBox spacing="10" alignment="CENTER">
@@ -38,21 +38,34 @@
     </top>
 
     <center>
-        <TableView fx:id="fileTable" tableMenuButtonVisible="true">
-            <columns>
-                <TableColumn fx:id="pathColumn" text="文件路径" prefWidth="300" sortable="false"/>
-                <TableColumn fx:id="creationTimeColumn" text="创建时间" prefWidth="150"/>
-                <TableColumn fx:id="modifiedTimeColumn" text="修改时间" prefWidth="150"/>
-                <TableColumn fx:id="accessTimeColumn" text="访问时间" prefWidth="150"/>
-                <TableColumn fx:id="statusColumn" text="状态" prefWidth="120"/>
-            </columns>
-            <selectionModel>
-                <TableViewSelectionModel fx:constant="MULTIPLE"/>
-            </selectionModel>
-            <placeholder>
-                <Label text="拖拽文件或文件夹开始校验"/>
-            </placeholder>
-        </TableView>
+        <SplitPane dividerPositions="0.3" orientation="HORIZONTAL">
+            <!-- 左侧：拖拽的文件列表 -->
+            <VBox spacing="5">
+                <padding>
+                    <Insets bottom="5" left="5" right="5" top="5"/>
+                </padding>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="拖拽的文件/文件夹:" style=" -fx-font-weight: bold;"/>
+                    <Button fx:id="scanAllButton" text="扫描全部" onAction="#handleScanAll" disable="true"/>
+                    <Button fx:id="clearSourceButton" text="清空" onAction="#handleClearSource" disable="true"/>
+                </HBox>
+                <ListView fx:id="sourceListView" VBox.vgrow="ALWAYS"/>
+            </VBox>
+
+            <!-- 右侧：扫描结果 -->
+            <TableView fx:id="fileTable" tableMenuButtonVisible="true">
+                <columns>
+                    <TableColumn fx:id="pathColumn" text="文件路径" prefWidth="300" sortable="false"/>
+                    <TableColumn fx:id="creationTimeColumn" text="创建时间" prefWidth="150"/>
+                    <TableColumn fx:id="modifiedTimeColumn" text="修改时间" prefWidth="150"/>
+                    <TableColumn fx:id="accessTimeColumn" text="访问时间" prefWidth="150"/>
+                    <TableColumn fx:id="statusColumn" text="状态" prefWidth="120"/>
+                </columns>
+                <placeholder>
+                    <Label text="点击 &quot;扫描全部&quot; 开始校验"/>
+                </placeholder>
+            </TableView>
+        </SplitPane>
     </center>
 
     <bottom>

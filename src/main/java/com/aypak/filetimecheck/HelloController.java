@@ -2,7 +2,10 @@ package com.aypak.filetimecheck;
 
 import com.aypak.filetimecheck.model.FileInfo;
 import com.aypak.filetimecheck.service.FileScannerTask;
+import com.aypak.filetimecheck.service.TimeValidationService;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -14,10 +17,14 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * 文件时间校验工具控制器
@@ -25,6 +32,7 @@ import java.time.format.DateTimeFormatter;
 public class HelloController {
 
     @FXML private StackPane dropZone;
+    @FXML private ListView<String> sourceListView;
     @FXML private TableView<FileInfo> fileTable;
     @FXML private ProgressBar progressBar;
     @FXML private Label progressLabel;
@@ -32,6 +40,11 @@ public class HelloController {
     @FXML private Label normalLabel;
     @FXML private Label abnormalLabel;
     @FXML private Button clearButton;
+    @FXML private Button reloadButton;
+    @FXML private Button validateButton;
+    @FXML private Button deleteButton;
+    @FXML private Button scanAllButton;
+    @FXML private Button clearSourceButton;
 
     @FXML private TableColumn<FileInfo, String> pathColumn;
     @FXML private TableColumn<FileInfo, String> creationTimeColumn;
@@ -41,11 +54,22 @@ public class HelloController {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private Task<ObservableList<FileInfo>> currentTask;
+    private List<Path> sourcePaths;
+    private ObservableList<String> sourceListItems;
+    private TimeValidationService validationService;
 
     @FXML
     public void initialize() {
+        validationService = new TimeValidationService();
+        sourcePaths = new ArrayList<>();
+        sourceListItems = FXCollections.observableArrayList();
+        sourceListView.setItems(sourceListItems);
+
+        // 设置 TableView 为多选模式
+        fileTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         setupTableColumns();
         setupDragAndDrop();
+        setupSelectionListener();
     }
 
     /**
@@ -101,26 +125,34 @@ public class HelloController {
      * 设置拖拽功能
      */
     private void setupDragAndDrop() {
-        dropZone.setOnDragOver(event -> {
+        // 为 dropZone 及其所有子节点设置拖拽处理
+        setupDragAndDropForNode(dropZone);
+    }
+
+    /**
+     * 递归为节点及其子节点设置拖拽处理
+     */
+    private void setupDragAndDropForNode(javafx.scene.Node node) {
+        node.setOnDragOver(event -> {
             if (event.getGestureSource() != dropZone && event.getDragboard().hasFiles()) {
                 event.acceptTransferModes(TransferMode.COPY);
             }
             event.consume();
         });
 
-        dropZone.setOnDragEntered(event -> {
+        node.setOnDragEntered(event -> {
             if (event.getGestureSource() != dropZone && event.getDragboard().hasFiles()) {
                 dropZone.getStyleClass().add("drop-zone-drag-over");
             }
             event.consume();
         });
 
-        dropZone.setOnDragExited(event -> {
+        node.setOnDragExited(event -> {
             dropZone.getStyleClass().remove("drop-zone-drag-over");
             event.consume();
         });
 
-        dropZone.setOnDragDropped(event -> {
+        node.setOnDragDropped(event -> {
             Dragboard db = event.getDragboard();
             boolean success = false;
 
@@ -132,18 +164,44 @@ public class HelloController {
             event.setDropCompleted(success);
             event.consume();
         });
+
+        // 如果是 Parent，递归处理子节点
+        if (node instanceof javafx.scene.Parent) {
+            javafx.scene.Parent parent = (javafx.scene.Parent) node;
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+                setupDragAndDropForNode(child);
+            }
+        }
     }
 
     /**
-     * 处理选择文件按钮点击
+     * 设置表格选择监听器
+     */
+    private void setupSelectionListener() {
+        TableView.TableViewSelectionModel<FileInfo> selectionModel = fileTable.getSelectionModel();
+        selectionModel.getSelectedItems().addListener((ListChangeListener<FileInfo>) change -> {
+            updateDeleteButtonState();
+        });
+    }
+
+    /**
+     * 更新删除按钮状态
+     */
+    private void updateDeleteButtonState() {
+        boolean hasSelection = !fileTable.getSelectionModel().getSelectedItems().isEmpty();
+        deleteButton.setDisable(!hasSelection);
+    }
+
+    /**
+     * 处理选择文件按钮点击（支持多选）
      */
     @FXML
     private void handleSelectFile() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("选择要校验的文件");
-        File file = fileChooser.showOpenDialog(dropZone.getScene().getWindow());
-        if (file != null) {
-            handleFiles(java.util.List.of(file));
+        List<File> files = fileChooser.showOpenMultipleDialog(dropZone.getScene().getWindow());
+        if (files != null && !files.isEmpty()) {
+            handleFiles(files);
         }
     }
 
@@ -161,10 +219,60 @@ public class HelloController {
     }
 
     /**
-     * 处理文件列表（拖拽或选择）
+     * 处理文件列表（拖拽或选择）- 添加到源文件列表
      */
-    private void handleFiles(java.util.List<File> files) {
+    private void handleFiles(List<File> files) {
         if (files == null || files.isEmpty()) {
+            return;
+        }
+
+        // 将文件添加到源列表
+        for (File file : files) {
+            Path path = Paths.get(file.getAbsolutePath());
+            String displayPath = getDisplayPath(file);
+
+            // 检查是否已存在
+            if (!sourcePaths.contains(path)) {
+                sourcePaths.add(path);
+                sourceListItems.add(displayPath);
+            }
+        }
+
+        // 更新按钮状态
+        updateSourceButtons();
+    }
+
+    /**
+     * 获取文件显示路径
+     */
+    private String getDisplayPath(File file) {
+        String path = file.getAbsolutePath();
+        boolean isDirectory = file.isDirectory();
+
+        // 如果是文件夹，显示 "文件夹: 路径"
+        if (isDirectory) {
+            return "[文件夹] " + path;
+        } else {
+            return "[文件] " + path;
+        }
+    }
+
+    /**
+     * 更新源文件列表按钮状态
+     */
+    private void updateSourceButtons() {
+        boolean hasSources = !sourcePaths.isEmpty();
+        scanAllButton.setDisable(!hasSources);
+        clearSourceButton.setDisable(!hasSources);
+    }
+
+    /**
+     * 处理扫描全部按钮点击
+     */
+    @FXML
+    private void handleScanAll() {
+        if (sourcePaths.isEmpty()) {
+            showAlert("提示", "没有可扫描的文件");
             return;
         }
 
@@ -177,17 +285,24 @@ public class HelloController {
         fileTable.getItems().clear();
         resetStatistics();
 
-        // 只处理第一个文件/文件夹
-        File firstFile = files.get(0);
-        Path path = Paths.get(firstFile.getAbsolutePath());
-        startScan(path);
+        startScan(sourcePaths);
     }
 
     /**
-     * 开始扫描文件
+     * 处理清空源文件列表按钮点击
      */
-    private void startScan(Path path) {
-        FileScannerTask task = new FileScannerTask(path);
+    @FXML
+    private void handleClearSource() {
+        sourcePaths.clear();
+        sourceListItems.clear();
+        updateSourceButtons();
+    }
+
+    /**
+     * 开始扫描文件（支持多路径）
+     */
+    private void startScan(List<Path> paths) {
+        FileScannerTask task = new FileScannerTask(paths);
         currentTask = task;
 
         // 绑定进度条
@@ -200,7 +315,7 @@ public class HelloController {
             Platform.runLater(() -> {
                 fileTable.setItems(result);
                 updateStatistics(result);
-                clearButton.setDisable(false);
+                enableActionButtons(true);
                 progressLabel.textProperty().unbind();
                 progressLabel.setText("扫描完成");
                 progressBar.progressProperty().unbind();
@@ -255,7 +370,111 @@ public class HelloController {
         totalLabel.setText("总文件数: 0");
         normalLabel.setText("正常: 0");
         abnormalLabel.setText("异常: 0");
-        clearButton.setDisable(true);
+        enableActionButtons(false);
+    }
+
+    /**
+     * 启用/禁用操作按钮
+     */
+    private void enableActionButtons(boolean enable) {
+        clearButton.setDisable(!enable);
+        reloadButton.setDisable(!enable || sourcePaths.isEmpty());
+        validateButton.setDisable(!enable);
+    }
+
+    /**
+     * 处理重新加载按钮点击
+     */
+    @FXML
+    private void handleReload() {
+        if (sourcePaths.isEmpty()) {
+            showAlert("提示", "没有可重新加载的文件");
+            return;
+        }
+
+        // 如果有正在运行的任务，先取消
+        if (currentTask != null && currentTask.isRunning()) {
+            currentTask.cancel();
+        }
+
+        // 清空当前表格
+        fileTable.getItems().clear();
+        resetStatistics();
+
+        startScan(sourcePaths);
+    }
+
+    /**
+     * 处理手动校验按钮点击
+     */
+    @FXML
+    private void handleValidate() {
+        ObservableList<FileInfo> items = fileTable.getItems();
+        if (items.isEmpty()) {
+            showAlert("提示", "列表中没有可校验的文件");
+            return;
+        }
+
+        progressLabel.setText("正在校验...");
+        progressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
+
+        // 在后台线程执行校验
+        Task<Void> validateTask = new Task<Void>() {
+            @Override
+            protected Void call() {
+                for (FileInfo fileInfo : items) {
+                    if (isCancelled()) {
+                        break;
+                    }
+                    validationService.validateAndUpdate(fileInfo);
+                }
+                return null;
+            }
+
+            @Override
+            protected void succeeded() {
+                Platform.runLater(() -> {
+                    updateStatistics(items);
+                    progressLabel.setText("校验完成");
+                    progressBar.setProgress(1.0);
+                });
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    progressLabel.setText("校验失败");
+                    progressBar.setProgress(0);
+                });
+            }
+        };
+
+        new Thread(validateTask).start();
+    }
+
+    /**
+     * 处理删除选中按钮点击
+     */
+    @FXML
+    private void handleDeleteSelected() {
+        ObservableList<FileInfo> selectedItems = fileTable.getSelectionModel().getSelectedItems();
+        if (selectedItems.isEmpty()) {
+            return;
+        }
+
+        int count = selectedItems.size();
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("确认删除");
+        confirmAlert.setHeaderText(null);
+        confirmAlert.setContentText("确定要删除选中的 " + count + " 项吗？");
+
+        Optional<ButtonType> result = confirmAlert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            // 创建新列表避免并发修改异常
+            ObservableList<FileInfo> itemsToRemove = FXCollections.observableArrayList(selectedItems);
+            fileTable.getItems().removeAll(itemsToRemove);
+            updateStatistics(fileTable.getItems());
+        }
     }
 
     /**
@@ -272,6 +491,7 @@ public class HelloController {
         resetStatistics();
         progressLabel.setText("就绪");
         progressBar.setProgress(0);
+        deleteButton.setDisable(true);
     }
 
     /**

@@ -4,7 +4,6 @@ import com.aypak.filetimecheck.model.FileInfo;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
-import javafx.concurrent.Service;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,6 +14,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 文件扫描异步任务
@@ -22,11 +22,22 @@ import java.util.stream.Collectors;
  */
 public class FileScannerTask extends Task<ObservableList<FileInfo>> {
 
-    private final Path path;
+    private final List<Path> paths;
     private final TimeValidationService validationService;
 
+    /**
+     * 单路径构造函数
+     */
     public FileScannerTask(Path path) {
-        this.path = path;
+        this.paths = java.util.List.of(path);
+        this.validationService = new TimeValidationService();
+    }
+
+    /**
+     * 多路径构造函数
+     */
+    public FileScannerTask(List<Path> paths) {
+        this.paths = new ArrayList<>(paths);
         this.validationService = new TimeValidationService();
     }
 
@@ -36,16 +47,23 @@ public class FileScannerTask extends Task<ObservableList<FileInfo>> {
         List<Path> filesToScan = new ArrayList<>();
 
         // 收集所有需要扫描的文件
-        if (Files.isDirectory(path)) {
-            try (var stream = Files.walk(path)) {
-                filesToScan = stream
-                        .filter(Files::isRegularFile)
-                        .collect(Collectors.toList());
+        for (Path path : paths) {
+            if (isCancelled()) {
+                break;
             }
-        } else if (Files.isRegularFile(path)) {
-            filesToScan.add(path);
-        } else {
-            throw new IllegalArgumentException("无效的文件路径: " + path);
+
+            if (Files.isDirectory(path)) {
+                try (Stream<Path> stream = Files.walk(path)) {
+                    List<Path> dirFiles = stream
+                            .filter(Files::isRegularFile)
+                            .collect(Collectors.toList());
+                    filesToScan.addAll(dirFiles);
+                }
+            } else if (Files.isRegularFile(path)) {
+                filesToScan.add(path);
+            } else {
+                System.err.println("无效的文件路径: " + path);
+            }
         }
 
         final int total = filesToScan.size();

@@ -19,6 +19,15 @@
     -fx-border-style: solid;
 }
 
+/* 确保拖拽区域内的内容不拦截鼠标事件 */
+.drop-zone-content {
+    -fx-pick-on-background: false;
+}
+
+.drop-zone-content > * {
+    -fx-pick-on-background: false;
+}
+
 .drop-hint {
     -fx-font-size: 14px;
     -fx-text-fill: #666666;
