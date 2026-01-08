@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+<DialogPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.aypak.filetimecheck.controller.RepairConfigDialogController"
+            prefHeight="550.0" prefWidth="650.0"
+            stylesheets="@style.css">
+
+    <header>
+        <VBox spacing="5">
+            <Label text="时间修复配置">
+                <font>
+                    <Font name="System Bold" size="16"/>
+                </font>
+            </Label>
+            <Label text="为每个时间属性设置修复规则" style="-fx-text-fill: #666;">
+                <font>
+                    <Font size="11"/>
+                </font>
+            </Label>
+        </VBox>
+    </header>
+
+    <content>
+        <TabPane tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+            <!-- 创建时间配置标签 -->
+            <Tab text="创建时间">
+                <VBox spacing="15" padding="10">
+                    <Label text="创建时间设置" style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
+
+                    <!-- 模式选择 -->
+                    <VBox spacing="8">
+                        <Label text="时间模式:" style="-fx-font-weight: bold;"/>
+                        <fx:define>
+                            <ToggleGroup fx:id="creationModeGroup"/>
+                        </fx:define>
+                        <RadioButton fx:id="creationBasedRadio" text="保持原始时间" toggleGroup="$creationModeGroup" selected="true"/>
+                        <RadioButton fx:id="creationFixedRadio" text="固定时间" toggleGroup="$creationModeGroup"/>
+                        <RadioButton fx:id="creationRandomRadio" text="随机时间偏移" toggleGroup="$creationModeGroup"/>
+                    </VBox>
+
+                    <!-- 固定时间输入区域 -->
+                    <VBox fx:id="creationFixedPane" spacing="8" managed="false" visible="false">
+                        <Label text="设置固定时间:" style="-fx-font-weight: bold;"/>
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <DatePicker fx:id="creationFixedDatePicker" promptText="选择日期" prefWidth="150"/>
+                            <TextField fx:id="creationFixedTimeField" promptText="HH:mm:ss" prefWidth="100"/>
+                            <Label text="格式: 小时:分钟:秒" style="-fx-text-fill: #888; -fx-font-size: 11px;"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- 随机时间偏移输入区域 -->
+                    <VBox fx:id="creationRandomPane" spacing="8" managed="false" visible="false">
+                        <Label text="随机偏移范围 (基于原始创建时间):" style="-fx-font-weight: bold;"/>
+                        <GridPane hgap="10" vgap="8">
+                            <Label text="天数:" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="0" alignment="CENTER_LEFT">
+                                <TextField fx:id="creationRandomDaysMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="creationRandomDaysMax" promptText="30" prefWidth="60" text="30"/>
+                                <Label text="天" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="小时:" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="1" alignment="CENTER_LEFT">
+                                <TextField fx:id="creationRandomHoursMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="creationRandomHoursMax" promptText="24" prefWidth="60" text="24"/>
+                                <Label text="小时" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="分钟:" GridPane.columnIndex="0" GridPane.rowIndex="2" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="2" alignment="CENTER_LEFT">
+                                <TextField fx:id="creationRandomMinutesMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="creationRandomMinutesMax" promptText="60" prefWidth="60" text="60"/>
+                                <Label text="分钟" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="秒数:" GridPane.columnIndex="0" GridPane.rowIndex="3" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="3" alignment="CENTER_LEFT">
+                                <TextField fx:id="creationRandomSecondsMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="creationRandomSecondsMax" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="秒" style="-fx-text-fill: #888;"/>
+                            </HBox>
+                        </GridPane>
+                    </VBox>
+                </VBox>
+            </Tab>
+
+            <!-- 修改时间配置标签 -->
+            <Tab text="修改时间">
+                <VBox spacing="15" padding="10">
+                    <Label text="修改时间设置" style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
+
+                    <!-- 模式选择 -->
+                    <VBox spacing="8">
+                        <Label text="时间模式:" style="-fx-font-weight: bold;"/>
+                        <fx:define>
+                            <ToggleGroup fx:id="modifiedModeGroup"/>
+                        </fx:define>
+                        <RadioButton fx:id="modifiedFixedRadio" text="固定时间" toggleGroup="$modifiedModeGroup"/>
+                        <RadioButton fx:id="modifiedRandomRadio" text="随机时间偏移" toggleGroup="$modifiedModeGroup" selected="true"/>
+                        <RadioButton fx:id="modifiedBasedRadio" text="基于前一个时间" toggleGroup="$modifiedModeGroup"/>
+                    </VBox>
+
+                    <!-- 基于前一个时间选择 -->
+                    <VBox fx:id="modifiedBasedPane" spacing="8" managed="false" visible="false">
+                        <Label text="基于:" style="-fx-font-weight: bold;"/>
+                        <ChoiceBox fx:id="modifiedBasedChoice" prefWidth="200"/>
+                    </VBox>
+
+                    <!-- 固定时间输入区域 -->
+                    <VBox fx:id="modifiedFixedPane" spacing="8" managed="false" visible="false">
+                        <Label text="设置固定时间:" style="-fx-font-weight: bold;"/>
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <DatePicker fx:id="modifiedFixedDatePicker" promptText="选择日期" prefWidth="150"/>
+                            <TextField fx:id="modifiedFixedTimeField" promptText="HH:mm:ss" prefWidth="100"/>
+                            <Label text="格式: 小时:分钟:秒" style="-fx-text-fill: #888; -fx-font-size: 11px;"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- 随机时间偏移输入区域 -->
+                    <VBox fx:id="modifiedRandomPane" spacing="8" managed="true" visible="true">
+                        <Label text="随机偏移范围:" style="-fx-font-weight: bold;"/>
+                        <Label fx:id="modifiedRandomBaseLabel" text="基于: 创建时间" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                        <GridPane hgap="10" vgap="8">
+                            <Label text="天数:" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="0" alignment="CENTER_LEFT">
+                                <TextField fx:id="modifiedRandomDaysMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="modifiedRandomDaysMax" promptText="30" prefWidth="60" text="30"/>
+                                <Label text="天" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="小时:" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="1" alignment="CENTER_LEFT">
+                                <TextField fx:id="modifiedRandomHoursMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="modifiedRandomHoursMax" promptText="24" prefWidth="60" text="24"/>
+                                <Label text="小时" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="分钟:" GridPane.columnIndex="0" GridPane.rowIndex="2" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="2" alignment="CENTER_LEFT">
+                                <TextField fx:id="modifiedRandomMinutesMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="modifiedRandomMinutesMax" promptText="60" prefWidth="60" text="60"/>
+                                <Label text="分钟" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="秒数:" GridPane.columnIndex="0" GridPane.rowIndex="3" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="3" alignment="CENTER_LEFT">
+                                <TextField fx:id="modifiedRandomSecondsMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="modifiedRandomSecondsMax" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="秒" style="-fx-text-fill: #888;"/>
+                            </HBox>
+                        </GridPane>
+                    </VBox>
+                </VBox>
+            </Tab>
+
+            <!-- 访问时间配置标签 -->
+            <Tab text="访问时间">
+                <VBox spacing="15" padding="10">
+                    <Label text="访问时间设置" style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
+
+                    <!-- 模式选择 -->
+                    <VBox spacing="8">
+                        <Label text="时间模式:" style="-fx-font-weight: bold;"/>
+                        <fx:define>
+                            <ToggleGroup fx:id="accessModeGroup"/>
+                        </fx:define>
+                        <RadioButton fx:id="accessFixedRadio" text="固定时间" toggleGroup="$accessModeGroup"/>
+                        <RadioButton fx:id="accessRandomRadio" text="随机时间偏移" toggleGroup="$accessModeGroup" selected="true"/>
+                        <RadioButton fx:id="accessBasedRadio" text="基于前一个时间" toggleGroup="$accessModeGroup"/>
+                    </VBox>
+
+                    <!-- 基于前一个时间选择 -->
+                    <VBox fx:id="accessBasedPane" spacing="8" managed="false" visible="false">
+                        <Label text="基于:" style="-fx-font-weight: bold;"/>
+                        <ChoiceBox fx:id="accessBasedChoice" prefWidth="200"/>
+                    </VBox>
+
+                    <!-- 固定时间输入区域 -->
+                    <VBox fx:id="accessFixedPane" spacing="8" managed="false" visible="false">
+                        <Label text="设置固定时间:" style="-fx-font-weight: bold;"/>
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <DatePicker fx:id="accessFixedDatePicker" promptText="选择日期" prefWidth="150"/>
+                            <TextField fx:id="accessFixedTimeField" promptText="HH:mm:ss" prefWidth="100"/>
+                            <Label text="格式: 小时:分钟:秒" style="-fx-text-fill: #888; -fx-font-size: 11px;"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- 随机时间偏移输入区域 -->
+                    <VBox fx:id="accessRandomPane" spacing="8" managed="true" visible="true">
+                        <Label text="随机偏移范围:" style="-fx-font-weight: bold;"/>
+                        <Label fx:id="accessRandomBaseLabel" text="基于: 修改时间" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                        <GridPane hgap="10" vgap="8">
+                            <Label text="天数:" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="0" alignment="CENTER_LEFT">
+                                <TextField fx:id="accessRandomDaysMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="accessRandomDaysMax" promptText="7" prefWidth="60" text="7"/>
+                                <Label text="天" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="小时:" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="1" alignment="CENTER_LEFT">
+                                <TextField fx:id="accessRandomHoursMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="accessRandomHoursMax" promptText="24" prefWidth="60" text="24"/>
+                                <Label text="小时" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="分钟:" GridPane.columnIndex="0" GridPane.rowIndex="2" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="2" alignment="CENTER_LEFT">
+                                <TextField fx:id="accessRandomMinutesMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="accessRandomMinutesMax" promptText="60" prefWidth="60" text="60"/>
+                                <Label text="分钟" style="-fx-text-fill: #888;"/>
+                            </HBox>
+
+                            <Label text="秒数:" GridPane.columnIndex="0" GridPane.rowIndex="3" style="-fx-font-weight: bold;"/>
+                            <HBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="3" alignment="CENTER_LEFT">
+                                <TextField fx:id="accessRandomSecondsMin" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="-"/>
+                                <TextField fx:id="accessRandomSecondsMax" promptText="0" prefWidth="60" text="0"/>
+                                <Label text="秒" style="-fx-text-fill: #888;"/>
+                            </HBox>
+                        </GridPane>
+                    </VBox>
+                </VBox>
+            </Tab>
+        </TabPane>
+    </content>
+
+    <expandableContent>
+        <VBox spacing="8">
+            <Label text="配置说明" style="-fx-font-weight: bold;"/>
+            <VBox spacing="5">
+                <Label text="• 保持原始时间: 使用文件的原始时间，不做修改" wrapText="true" style="-fx-font-size: 11px;"/>
+                <Label text="• 固定时间: 设置具体的日期和时间（格式: HH:mm:ss）" wrapText="true" style="-fx-font-size: 11px;"/>
+                <Label text="• 随机偏移: 在指定范围内随机生成偏移量" wrapText="true" style="-fx-font-size: 11px;"/>
+                <Label text="• 基于前一个: 基于指定的时间属性进行计算" wrapText="true" style="-fx-font-size: 11px;"/>
+            </VBox>
+        </VBox>
+    </expandableContent>
+
+    <buttonTypes>
+        <ButtonType text="重置默认" buttonData="LEFT"/>
+        <ButtonType fx:constant="CANCEL"/>
+        <ButtonType fx:constant="OK"/>
+    </buttonTypes>
+
+</DialogPane>

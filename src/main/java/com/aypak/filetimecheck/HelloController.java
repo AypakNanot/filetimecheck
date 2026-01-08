@@ -1,7 +1,10 @@
 package com.aypak.filetimecheck;
 
+import com.aypak.filetimecheck.controller.RepairConfigDialogController;
 import com.aypak.filetimecheck.model.FileInfo;
+import com.aypak.filetimecheck.model.RepairConfig;
 import com.aypak.filetimecheck.service.FileScannerTask;
+import com.aypak.filetimecheck.service.TimeRepairService;
 import com.aypak.filetimecheck.service.TimeValidationService;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -9,6 +12,7 @@ import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.scene.control.*;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
@@ -17,7 +21,7 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
 import java.io.File;
-import java.nio.file.Files;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -45,6 +49,8 @@ public class HelloController {
     @FXML private Button deleteButton;
     @FXML private Button scanAllButton;
     @FXML private Button clearSourceButton;
+    @FXML private Button repairSelectedButton;
+    @FXML private Button repairAllButton;
 
     @FXML private TableColumn<FileInfo, String> pathColumn;
     @FXML private TableColumn<FileInfo, String> creationTimeColumn;
@@ -57,10 +63,13 @@ public class HelloController {
     private List<Path> sourcePaths;
     private ObservableList<String> sourceListItems;
     private TimeValidationService validationService;
+    private TimeRepairService repairService;
+    private RepairConfig currentRepairConfig;  // 保存当前修复配置
 
     @FXML
     public void initialize() {
         validationService = new TimeValidationService();
+        repairService = new TimeRepairService();
         sourcePaths = new ArrayList<>();
         sourceListItems = FXCollections.observableArrayList();
         sourceListView.setItems(sourceListItems);
@@ -180,16 +189,20 @@ public class HelloController {
     private void setupSelectionListener() {
         TableView.TableViewSelectionModel<FileInfo> selectionModel = fileTable.getSelectionModel();
         selectionModel.getSelectedItems().addListener((ListChangeListener<FileInfo>) change -> {
-            updateDeleteButtonState();
+            updateButtonStates();
         });
     }
 
     /**
-     * 更新删除按钮状态
+     * 更新按钮状态
      */
-    private void updateDeleteButtonState() {
+    private void updateButtonStates() {
         boolean hasSelection = !fileTable.getSelectionModel().getSelectedItems().isEmpty();
+        boolean hasItems = !fileTable.getItems().isEmpty();
+
         deleteButton.setDisable(!hasSelection);
+        repairSelectedButton.setDisable(!hasSelection);
+        repairAllButton.setDisable(!hasItems);
     }
 
     /**
@@ -316,6 +329,7 @@ public class HelloController {
                 fileTable.setItems(result);
                 updateStatistics(result);
                 enableActionButtons(true);
+                updateButtonStates();
                 progressLabel.textProperty().unbind();
                 progressLabel.setText("扫描完成");
                 progressBar.progressProperty().unbind();
@@ -453,6 +467,160 @@ public class HelloController {
     }
 
     /**
+     * 处理修复选中按钮点击
+     */
+    @FXML
+    private void handleRepairSelected() {
+        ObservableList<FileInfo> selectedItems = fileTable.getSelectionModel().getSelectedItems();
+        if (selectedItems.isEmpty()) {
+            return;
+        }
+
+        // 显示配置对话框
+        RepairConfig config = showRepairConfigDialog();
+        if (config == null) {
+            return;  // 用户取消
+        }
+
+        currentRepairConfig = config;
+
+        int count = selectedItems.size();
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("确认修复");
+        confirmAlert.setHeaderText(null);
+        confirmAlert.setContentText("确定要修复选中的 " + count + " 个文件的时间吗？\n\n" +
+                getConfigDescription(config));
+
+        Optional<ButtonType> result = confirmAlert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            repairFiles(selectedItems, false);
+        }
+    }
+
+    /**
+     * 处理一键修复按钮点击
+     */
+    @FXML
+    private void handleRepairAll() {
+        ObservableList<FileInfo> items = fileTable.getItems();
+        if (items.isEmpty()) {
+            showAlert("提示", "列表中没有可修复的文件");
+            return;
+        }
+
+        // 显示配置对话框
+        RepairConfig config = showRepairConfigDialog();
+        if (config == null) {
+            return;  // 用户取消
+        }
+
+        currentRepairConfig = config;
+
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("确认修复");
+        confirmAlert.setHeaderText(null);
+        confirmAlert.setContentText("确定要修复全部 " + items.size() + " 个文件的时间吗？\n\n" +
+                getConfigDescription(config));
+
+        Optional<ButtonType> result = confirmAlert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            repairFiles(items, true);
+        }
+    }
+
+    /**
+     * 修复文件时间
+     */
+    private void repairFiles(ObservableList<FileInfo> files, boolean repairAll) {
+        progressLabel.setText("正在修复文件时间...");
+        progressBar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
+
+        Task<RepairSummary> repairTask = new Task<RepairSummary>() {
+            @Override
+            protected RepairSummary call() throws Exception {
+                int successCount = 0;
+                int failCount = 0;
+                List<String> errors = new ArrayList<>();
+
+                int total = files.size();
+                for (int i = 0; i < total; i++) {
+                    if (isCancelled()) {
+                        break;
+                    }
+
+                    FileInfo fileInfo = files.get(i);
+                    Path filePath = Paths.get(fileInfo.getFilePath());
+
+                    try {
+                        // 使用配置修复文件
+                        repairService.repairFile(filePath, currentRepairConfig);
+
+                        // 更新 FileInfo 中的时间显示
+                        repairService.repairFileInfo(fileInfo, currentRepairConfig);
+                        validationService.validateAndUpdate(fileInfo);
+
+                        successCount++;
+                        updateMessage(String.format("修复中: %d/%d", i + 1, total));
+                    } catch (IOException e) {
+                        failCount++;
+                        errors.add(filePath.getFileName() + ": " + e.getMessage());
+                    }
+                }
+
+                return new RepairSummary(successCount, failCount, errors);
+            }
+
+            @Override
+            protected void succeeded() {
+                RepairSummary summary = getValue();
+                Platform.runLater(() -> {
+                    progressLabel.setText("修复完成");
+                    progressBar.setProgress(1.0);
+
+                    // 显示修复结果
+                    String message = String.format("修复完成！\n成功: %d 个\n失败: %d 个",
+                            summary.successCount, summary.failCount);
+
+                    if (!summary.errors.isEmpty()) {
+                        message += "\n\n失败详情:\n" + String.join("\n", summary.errors.subList(0, Math.min(5, summary.errors.size())));
+                        if (summary.errors.size() > 5) {
+                            message += "\n... 还有 " + (summary.errors.size() - 5) + " 个文件";
+                        }
+                    }
+
+                    showAlert("修复完成", message);
+                });
+            }
+
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    progressLabel.setText("修复失败");
+                    progressBar.setProgress(0);
+                    showAlert("修复失败", getException().getMessage());
+                });
+            }
+        };
+
+        new Thread(repairTask).start();
+    }
+
+    /**
+     * 修复结果摘要
+     */
+    private static class RepairSummary {
+        final int successCount;
+        final int failCount;
+        final List<String> errors;
+
+        RepairSummary(int successCount, int failCount, List<String> errors) {
+            this.successCount = successCount;
+            this.failCount = failCount;
+            this.errors = errors;
+        }
+    }
+
+    /**
      * 处理删除选中按钮点击
      */
     @FXML
@@ -491,17 +659,125 @@ public class HelloController {
         resetStatistics();
         progressLabel.setText("就绪");
         progressBar.setProgress(0);
-        deleteButton.setDisable(true);
+        updateButtonStates();
     }
 
     /**
      * 显示警告对话框
      */
     private void showAlert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING);
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    /**
+     * 显示修复配置对话框
+     */
+    private RepairConfig showRepairConfigDialog() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/aypak/filetimecheck/repair-config-dialog.fxml"));
+            DialogPane dialogPane = loader.load();
+
+            RepairConfigDialogController controller = loader.getController();
+
+            // 如果有上次配置，加载它；否则使用默认配置
+            RepairConfig config = currentRepairConfig != null
+                    ? currentRepairConfig
+                    : RepairConfig.createDefault();
+            controller.setConfig(config);
+
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.setDialogPane(dialogPane);
+            dialog.setTitle("时间修复配置");
+            dialog.initOwner(dropZone.getScene().getWindow());
+
+            // 处理重置按钮 - 通过查找按钮文本
+            for (ButtonType bt : dialogPane.getButtonTypes()) {
+                Button button = (Button) dialogPane.lookupButton(bt);
+                if ("重置默认".equals(bt.getText())) {
+                    button.setOnAction(e -> {
+                        controller.setConfig(RepairConfig.createDefault());
+                    });
+                    break;
+                }
+            }
+
+            Optional<ButtonType> result = dialog.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.OK) {
+                if (controller.buildConfigFromUI()) {
+                    return controller.getConfig();
+                }
+            }
+
+        } catch (IOException e) {
+            showAlert("错误", "无法加载配置对话框: " + e.getMessage());
+        }
+
+        return null;
+    }
+
+    /**
+     * 获取配置描述
+     */
+    private String getConfigDescription(RepairConfig config) {
+        if (config == null) {
+            return "修复规则: 使用默认配置";
+        }
+
+        StringBuilder sb = new StringBuilder("修复规则:\n");
+        sb.append("• 创建时间: ").append(getTimeConfigDesc(config.getCreationConfig())).append("\n");
+        sb.append("• 修改时间: ").append(getTimeConfigDesc(config.getModifiedConfig())).append("\n");
+        sb.append("• 访问时间: ").append(getTimeConfigDesc(config.getAccessConfig()));
+        return sb.toString();
+    }
+
+    /**
+     * 获取时间配置描述
+     */
+    private String getTimeConfigDesc(RepairConfig.TimeConfig timeConfig) {
+        if (timeConfig == null) {
+            return "保持原始";
+        }
+
+        switch (timeConfig.getMode()) {
+            case FIXED:
+                if (timeConfig.getFixedTime() != null) {
+                    return "固定时间 " + timeConfig.getFixedTime().format(DATE_FORMATTER);
+                }
+                return "保持原始";
+            case RANDOM:
+                RepairConfig.RandomOffset offset = timeConfig.getRandomOffset();
+                String baseDesc = "";
+                if (timeConfig.getBaseOnPrevious() != null) {
+                    baseDesc = "基于" + getTimeAttributeName(timeConfig.getBaseOnPrevious()) + " + ";
+                }
+                return String.format("%s随机偏移 %d-%d天 %d-%d小时 %d-%d分钟",
+                        baseDesc,
+                        offset.getDaysMin(), offset.getDaysMax(),
+                        offset.getHoursMin(), offset.getHoursMax(),
+                        offset.getMinutesMin(), offset.getMinutesMax());
+            case BASED_ON_PREVIOUS:
+                if (timeConfig.getBaseOnPrevious() != null) {
+                    return "基于" + getTimeAttributeName(timeConfig.getBaseOnPrevious());
+                }
+                return "保持原始";
+            default:
+                return "保持原始";
+        }
+    }
+
+    /**
+     * 获取时间属性名称
+     */
+    private String getTimeAttributeName(RepairConfig.TimeAttribute attribute) {
+        switch (attribute) {
+            case CREATION_TIME: return "创建时间";
+            case MODIFIED_TIME: return "修改时间";
+            case ACCESS_TIME: return "访问时间";
+            default: return "创建时间";
+        }
     }
 }

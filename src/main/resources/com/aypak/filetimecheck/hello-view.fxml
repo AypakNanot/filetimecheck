@@ -95,6 +95,8 @@
             <HBox spacing="10" alignment="CENTER_RIGHT">
                 <Button fx:id="reloadButton" text="重新加载" onAction="#handleReload" disable="true"/>
                 <Button fx:id="validateButton" text="手动校验" onAction="#handleValidate" disable="true"/>
+                <Button fx:id="repairSelectedButton" text="修复选中" onAction="#handleRepairSelected" disable="true"/>
+                <Button fx:id="repairAllButton" text="一键修复" onAction="#handleRepairAll" disable="true"/>
                 <Button fx:id="deleteButton" text="删除选中" onAction="#handleDeleteSelected" disable="true"/>
                 <Button fx:id="clearButton" text="清空列表" onAction="#handleClear" disable="true"/>
             </HBox>
